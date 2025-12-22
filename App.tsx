@@ -16,7 +16,22 @@ import { ApiKeyDialog } from './ApiKeyDialog';
 // --- Constants ---
 const MODEL_V3 = "gemini-3-pro-image-preview";
 const MODEL_IMAGE_GEN_NAME = MODEL_V3;
-const MODEL_TEXT_NAME = MODEL_V3;
+const MODEL_TEXT_NAME = "gemini-2.0-flash";
+
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+async function callWithRetry<T>(fn: () => Promise<T>, retries = 3, initialDelay = 4000): Promise<T> {
+    try {
+        return await fn();
+    } catch (e: any) {
+        if (retries > 0 && (String(e).includes('429') || String(e).includes('RESOURCE_EXHAUSTED') || String(e).includes('quota'))) {
+            console.warn(`Quota exceeded. Retrying in ${initialDelay}ms... (${retries} retries left)`);
+            await delay(initialDelay);
+            return callWithRetry(fn, retries - 1, initialDelay * 2); // Exponential backoff
+        }
+        throw e;
+    }
+}
 
 const App: React.FC = () => {
   // --- API Key Hook ---
@@ -219,11 +234,11 @@ OUTPUT STRICT JSON ONLY (No markdown formatting):
       const style = selectedGenre === 'Custom' ? "Modern American comic book art" : `${selectedGenre} comic`;
       try {
           const ai = getAI();
-          const res = await ai.models.generateContent({
+          const res = await callWithRetry(() => ai.models.generateContent({
               model: MODEL_IMAGE_GEN_NAME,
               contents: { text: `STYLE: Masterpiece ${style} character sheet, detailed ink, neutral background. FULL BODY. Character: ${desc}` },
               config: { imageConfig: { aspectRatio: '1:1' } }
-          });
+          }));
           const part = res.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
           if (part?.inlineData?.data) return { base64: part.inlineData.data, desc };
           throw new Error("Failed");
