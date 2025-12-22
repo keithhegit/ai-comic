@@ -23,7 +23,11 @@ const App: React.FC = () => {
   const { validateApiKey, setShowApiKeyDialog, showApiKeyDialog, handleApiKeyDialogContinue } = useApiKey();
 
   const [hero, setHeroState] = useState<Persona | null>(null);
-  const [friend, setFriendState] = useState<Persona | null>(null);
+  const [friends, setFriendsState] = useState<Persona[]>([]); // Changed to array
+  const [comicTitle, setComicTitle] = useState("INFINITE HEROES");
+  const [pageCount, setPageCount] = useState(MAX_STORY_PAGES);
+  const [plotGuidance, setPlotGuidance] = useState("");
+  
   const [selectedGenre, setSelectedGenre] = useState(GENRES[0]);
   const [selectedLanguage, setSelectedLanguage] = useState(LANGUAGES[0].code);
   const [customPremise, setCustomPremise] = useState("");
@@ -31,10 +35,10 @@ const App: React.FC = () => {
   const [richMode, setRichMode] = useState(true);
   
   const heroRef = useRef<Persona | null>(null);
-  const friendRef = useRef<Persona | null>(null);
+  const friendsRef = useRef<Persona[]>([]); // Changed to array
 
   const setHero = (p: Persona | null) => { setHeroState(p); heroRef.current = p; };
-  const setFriend = (p: Persona | null) => { setFriendState(p); friendRef.current = p; };
+  const setFriends = (p: Persona[]) => { setFriendsState(p); friendsRef.current = p; };
   
   const [comicFaces, setComicFaces] = useState<ComicFace[]>([]);
   const [currentSheetIndex, setCurrentSheetIndex] = useState(0);
@@ -77,7 +81,7 @@ const App: React.FC = () => {
   const generateBeat = async (history: ComicFace[], isRightPage: boolean, pageNum: number, isDecisionPage: boolean): Promise<Beat> => {
     if (!heroRef.current) throw new Error("No Hero");
 
-    const isFinalPage = pageNum === MAX_STORY_PAGES;
+    const isFinalPage = pageNum === pageCount;
     const langName = LANGUAGES.find(l => l.code === selectedLanguage)?.name || "English";
 
     // Get relevant history and last focus to prevent repetition
@@ -93,12 +97,16 @@ const App: React.FC = () => {
     ).join('\n');
 
     // Aggressive Co-Star Injection Logic
-    let friendInstruction = "Not yet introduced.";
-    if (friendRef.current) {
-        friendInstruction = "ACTIVE and PRESENT (User Provided).";
+    let friendInstruction = "No co-stars.";
+    if (friendsRef.current.length > 0) {
+        friendInstruction = `ACTIVE and PRESENT. Co-Stars available: ${friendsRef.current.length}.`;
+        friendsRef.current.forEach((f, idx) => {
+             friendInstruction += ` [CO-STAR ${idx+1}: ${f.desc || 'Sidekick'}]`;
+        });
+        
         // If the last panel wasn't the friend, strongly suggest switching to them to maintain balance.
         if (lastFocus !== 'friend' && Math.random() > 0.4) {
-             friendInstruction += " MANDATORY: FOCUS ON THE CO-STAR FOR THIS PANEL.";
+             friendInstruction += " MANDATORY: FOCUS ON A CO-STAR FOR THIS PANEL.";
         } else {
              friendInstruction += " Ensure they are woven into the scene even if not the main focus.";
         }
@@ -108,6 +116,9 @@ const App: React.FC = () => {
     let coreDriver = `GENRE: ${selectedGenre}. TONE: ${storyTone}.`;
     if (selectedGenre === 'Custom') {
         coreDriver = `STORY PREMISE: ${customPremise || "A totally unique, unpredictable adventure"}. (Follow this premise strictly over standard genre tropes).`;
+    }
+    if (plotGuidance) {
+        coreDriver += ` USER PLOT GUIDANCE (HIGHEST PRIORITY): ${plotGuidance}.`;
     }
     
     const isSliceOfLife = selectedGenre.includes("Comedy") || selectedGenre.includes("Teen") || selectedGenre.includes("Slice");
@@ -134,9 +145,9 @@ const App: React.FC = () => {
         // Neutralized Narrative Arc to avoid forcing "scary mystery" tones if the genre doesn't call for it.
         if (pageNum === 1) {
             instruction += " INCITING INCIDENT. An event disrupts the status quo. Establish the genre's intended mood. (If Slice of Life: A social snag/surprise. If Adventure: A call to action).";
-        } else if (pageNum <= 4) {
+        } else if (pageNum <= Math.floor(pageCount * 0.4)) {
             instruction += " RISING ACTION. The heroes engage with the new situation. Focus on dialogue, character dynamics, and initial challenges.";
-        } else if (pageNum <= 8) {
+        } else if (pageNum <= Math.floor(pageCount * 0.8)) {
             instruction += " COMPLICATION. A twist occurs! A secret is revealed, a misunderstanding deepens, or the path is blocked. (Keep intensity appropriate to Genre - e.g. Social awkwardness for Comedy, Danger for Horror).";
         } else {
             instruction += " CLIMAX. The confrontation with the main conflict. The truth comes out, the contest ends, or the battle is fought.";
@@ -148,20 +159,20 @@ const App: React.FC = () => {
     const diaLimit = richMode ? "max 30 words. Rich, character-driven speech" : "max 12 words";
 
     const prompt = `
-You are writing a comic book script. PAGE ${pageNum} of ${MAX_STORY_PAGES}.
+You are writing a comic book script. PAGE ${pageNum} of ${pageCount}.
 TARGET LANGUAGE FOR TEXT: ${langName} (CRITICAL: CAPTIONS, DIALOGUE, CHOICES MUST BE IN THIS LANGUAGE).
 ${coreDriver}
 
 CHARACTERS:
 - HERO: Active.
-- CO-STAR: ${friendInstruction}
+- CO-STARS: ${friendInstruction}
 
 PREVIOUS PANELS (READ CAREFULLY):
 ${historyText.length > 0 ? historyText : "Start the adventure."}
 
 RULES:
 1. NO REPETITION. Do not use the same captions or dialogue from previous pages.
-2. IF CO-STAR IS ACTIVE, THEY MUST APPEAR FREQUENTLY.
+2. IF CO-STARS ARE ACTIVE, THEY MUST APPEAR FREQUENTLY.
 3. VARIETY. If page ${pageNum-1} was an action shot, make this one a reaction or wide shot.
 4. LANGUAGE: All user-facing text MUST be in ${langName}.
 5. Avoid saying "CO-star" and "hero" in the text captions. Use names if established, or generic descriptors.
@@ -172,7 +183,7 @@ OUTPUT STRICT JSON ONLY (No markdown formatting):
 {
   "caption": "Unique narrator text in ${langName}. (${capLimit}).",
   "dialogue": "Unique speech in ${langName}. (${diaLimit}). Optional.",
-  "scene": "Vivid visual description (ALWAYS IN ENGLISH for the artist model). MUST mention 'HERO' or 'CO-STAR' if they are present.",
+  "scene": "Vivid visual description (ALWAYS IN ENGLISH for the artist model). MUST mention 'HERO' or 'CO-STAR 1' / 'CO-STAR 2' if they are present.",
   "focus_char": "hero" OR "friend" OR "other",
   "choices": ["Option A in ${langName}", "Option B in ${langName}"] (Only if decision page)
 }
@@ -228,22 +239,30 @@ OUTPUT STRICT JSON ONLY (No markdown formatting):
         contents.push({ text: "REFERENCE 1 [HERO]:" });
         contents.push({ inlineData: { mimeType: 'image/jpeg', data: heroRef.current.base64 } });
     }
-    if (friendRef.current?.base64) {
-        contents.push({ text: "REFERENCE 2 [CO-STAR]:" });
-        contents.push({ inlineData: { mimeType: 'image/jpeg', data: friendRef.current.base64 } });
-    }
+    
+    // Multiple Co-Stars
+    friendsRef.current.forEach((f, idx) => {
+        contents.push({ text: `REFERENCE ${idx + 2} [CO-STAR ${idx + 1}]:` });
+        contents.push({ inlineData: { mimeType: 'image/jpeg', data: f.base64 } });
+    });
 
     const styleEra = selectedGenre === 'Custom' ? "Modern American" : selectedGenre;
     let promptText = `STYLE: ${styleEra} comic book art, detailed ink, vibrant colors. `;
     
+    // Consistency Instructions
+    promptText += " CONSISTENCY RULES: 1. Keep character faces, hair, and costumes STRICTLY consistent with REFERENCES. 2. Do not change race, gender, or key features. ";
+    
     if (type === 'cover') {
         const langName = LANGUAGES.find(l => l.code === selectedLanguage)?.name || "English";
-        promptText += `TYPE: Comic Book Cover. TITLE: "INFINITE HEROES" (OR LOCALIZED TRANSLATION IN ${langName.toUpperCase()}). Main visual: Dynamic action shot of [HERO] (Use REFERENCE 1).`;
+        promptText += `TYPE: Comic Book Cover. TITLE: "${comicTitle.toUpperCase()}" (OR LOCALIZED TRANSLATION IN ${langName.toUpperCase()}). Main visual: Dynamic action shot of [HERO] (Use REFERENCE 1).`;
     } else if (type === 'back_cover') {
         promptText += `TYPE: Comic Back Cover. FULL PAGE VERTICAL ART. Dramatic teaser. Text: "NEXT ISSUE SOON".`;
     } else {
         promptText += `TYPE: Vertical comic panel. SCENE: ${beat.scene}. `;
-        promptText += `INSTRUCTIONS: Maintain strict character likeness. If scene mentions 'HERO', you MUST use REFERENCE 1. If scene mentions 'CO-STAR' or 'SIDEKICK', you MUST use REFERENCE 2.`;
+        promptText += `INSTRUCTIONS: Maintain strict character likeness. If scene mentions 'HERO', you MUST use REFERENCE 1.`;
+        friendsRef.current.forEach((_, idx) => {
+             promptText += ` If scene mentions 'CO-STAR ${idx+1}', use REFERENCE ${idx+2}.`;
+        });
         
         if (beat.caption) promptText += ` INCLUDE CAPTION BOX: "${beat.caption}"`;
         if (beat.dialogue) promptText += ` INCLUDE SPEECH BUBBLE: "${beat.dialogue}"`;
@@ -284,10 +303,10 @@ OUTPUT STRICT JSON ONLY (No markdown formatting):
            beat = await generateBeat(historyRef.current, pageNum % 2 === 0, pageNum, isDecision);
       }
 
-      if (beat.focus_char === 'friend' && !friendRef.current && type === 'story') {
+      if (beat.focus_char === 'friend' && friendsRef.current.length === 0 && type === 'story') {
           try {
               const newSidekick = await generatePersona(selectedGenre === 'Custom' ? "A fitting sidekick for this story" : `Sidekick for ${selectedGenre} story.`);
-              setFriend(newSidekick);
+              setFriends([newSidekick]);
           } catch (e) { beat.focus_char = 'other'; }
       }
 
@@ -300,7 +319,7 @@ OUTPUT STRICT JSON ONLY (No markdown formatting):
       const pagesToGen: number[] = [];
       for (let i = 0; i < count; i++) {
           const p = startPage + i;
-          if (p <= TOTAL_PAGES && !generatingPages.current.has(p)) {
+          if (p <= pageCount + 1 && !generatingPages.current.has(p)) {
               pagesToGen.push(p);
           }
       }
@@ -310,7 +329,7 @@ OUTPUT STRICT JSON ONLY (No markdown formatting):
 
       const newFaces: ComicFace[] = [];
       pagesToGen.forEach(pageNum => {
-          const type = pageNum === BACK_COVER_PAGE ? 'back_cover' : 'story';
+          const type = pageNum > pageCount ? 'back_cover' : 'story';
           newFaces.push({ id: `page-${pageNum}`, type, choices: [], isLoading: true, pageIndex: pageNum });
       });
 
@@ -322,7 +341,7 @@ OUTPUT STRICT JSON ONLY (No markdown formatting):
 
       try {
           for (const pageNum of pagesToGen) {
-               await generateSinglePage(`page-${pageNum}`, pageNum, pageNum === BACK_COVER_PAGE ? 'back_cover' : 'story');
+               await generateSinglePage(`page-${pageNum}`, pageNum, pageNum > pageCount ? 'back_cover' : 'story');
                generatingPages.current.delete(pageNum);
           }
       } catch (e) {
@@ -372,7 +391,7 @@ OUTPUT STRICT JSON ONLY (No markdown formatting):
   const handleChoice = async (pageIndex: number, choice: string) => {
       updateFaceState(`page-${pageIndex}`, { resolvedChoice: choice });
       const maxPage = Math.max(...historyRef.current.map(f => f.pageIndex || 0));
-      if (maxPage + 1 <= TOTAL_PAGES) {
+      if (maxPage + 1 <= pageCount + 1) {
           generateBatch(maxPage + 1, BATCH_SIZE);
       }
   }
@@ -385,7 +404,7 @@ OUTPUT STRICT JSON ONLY (No markdown formatting):
       historyRef.current = [];
       generatingPages.current.clear();
       setHero(null);
-      setFriend(null);
+      setFriends([]);
   };
 
   const downloadPDF = () => {
@@ -404,8 +423,11 @@ OUTPUT STRICT JSON ONLY (No markdown formatting):
   const handleHeroUpload = async (file: File) => {
        try { const base64 = await fileToBase64(file); setHero({ base64, desc: "The Main Hero" }); } catch (e) { alert("Hero upload failed"); }
   };
-  const handleFriendUpload = async (file: File) => {
-       try { const base64 = await fileToBase64(file); setFriend({ base64, desc: "The Sidekick/Rival" }); } catch (e) { alert("Friend upload failed"); }
+  const handleAddFriend = async (file: File) => {
+       try { 
+           const base64 = await fileToBase64(file); 
+           setFriends([...friends, { base64, desc: `Co-Star ${friends.length + 1}` }]); 
+       } catch (e) { alert("Friend upload failed"); }
   };
 
   const handleSheetClick = (index: number) => {
@@ -423,13 +445,24 @@ OUTPUT STRICT JSON ONLY (No markdown formatting):
           show={showSetup}
           isTransitioning={isTransitioning}
           hero={hero}
-          friend={friend}
+          friends={friends}
+          comicTitle={comicTitle}
+          pageCount={pageCount}
+          plotGuidance={plotGuidance}
+          
           selectedGenre={selectedGenre}
           selectedLanguage={selectedLanguage}
           customPremise={customPremise}
           richMode={richMode}
+          
           onHeroUpload={handleHeroUpload}
-          onFriendUpload={handleFriendUpload}
+          onFriendUpload={handleAddFriend}
+          onFriendsChange={setFriends}
+          
+          onTitleChange={setComicTitle}
+          onPageCountChange={setPageCount}
+          onPlotGuidanceChange={setPlotGuidance}
+          
           onGenreChange={setSelectedGenre}
           onLanguageChange={setSelectedLanguage}
           onPremiseChange={setCustomPremise}
