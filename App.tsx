@@ -7,7 +7,7 @@
 import React, { useState, useRef } from 'react';
 import { GoogleGenAI } from '@google/genai';
 import jsPDF from 'jspdf';
-import { MAX_STORY_PAGES, BACK_COVER_PAGE, TOTAL_PAGES, INITIAL_PAGES, BATCH_SIZE, DECISION_PAGES, GENRES, TONES, LANGUAGES, ComicFace, Beat, Persona } from './types';
+import { MAX_STORY_PAGES, BACK_COVER_PAGE, TOTAL_PAGES, INITIAL_PAGES, BATCH_SIZE, DECISION_PAGES, GENRES, TONES, LANGUAGES, ComicFace, Beat, Persona, STYLE_PRESETS } from './types';
 import { Setup } from './Setup';
 import { Book } from './Book';
 import { useApiKey } from './useApiKey';
@@ -245,19 +245,24 @@ OUTPUT STRICT JSON ONLY (No markdown formatting):
         contents.push({ inlineData: { mimeType: 'image/jpeg', data: f.base64 } });
     });
 
-    const styleEra = selectedGenre === 'Custom' ? "Modern American" : selectedGenre;
-    let promptText = `STYLE: ${styleEra} comic book art, detailed ink, vibrant colors. `;
+    const preset = STYLE_PRESETS[selectedGenre] || STYLE_PRESETS["default"];
+    let promptText = `STYLE: ${preset.baseStyle}. TEXTURE: ${preset.texture}. LIGHTING: ${preset.lighting}. `;
     
     // Consistency Instructions
-    promptText += " CONSISTENCY RULES: 1. Keep character faces, hair, and costumes STRICTLY consistent with REFERENCES. 2. Do not change race, gender, or key features. ";
+    const consistencyBoost = preset.characterConsistency ? ` ${preset.characterConsistency}.` : "";
+    promptText += `CONSISTENCY RULES: 1. Keep character faces, hair, and costumes STRICTLY consistent with REFERENCES.${consistencyBoost} 2. Do not change race, gender, or key features. `;
     
     if (type === 'cover') {
         const langName = LANGUAGES.find(l => l.code === selectedLanguage)?.name || "English";
-        promptText += `TYPE: Comic Book Cover. TITLE: "${comicTitle.toUpperCase()}" (OR LOCALIZED TRANSLATION IN ${langName.toUpperCase()}). Main visual: Dynamic action shot of [HERO] (Use REFERENCE 1).`;
+        if (selectedGenre === "英雄联盟原画") {
+            promptText += `TYPE: Epic splash art cover page. TITLE: "${comicTitle.toUpperCase()}" (Rendered in stylized fantasy metallic text with glow effect). COMPOSITION: Heroic low-angle shot of [HERO] (Use REFERENCE 1) with dramatic pose. BACKGROUND: Swirling magical energy and battlefield vista. QUALITY: Masterpiece, award-winning illustration quality.`;
+        } else {
+            promptText += `TYPE: Comic Book Cover. TITLE: "${comicTitle.toUpperCase()}" (OR LOCALIZED TRANSLATION IN ${langName.toUpperCase()}). Main visual: Dynamic action shot of [HERO] (Use REFERENCE 1).`;
+        }
     } else if (type === 'back_cover') {
         promptText += `TYPE: Comic Back Cover. FULL PAGE VERTICAL ART. Dramatic teaser. Text: "NEXT ISSUE SOON".`;
     } else {
-        promptText += `TYPE: Vertical comic panel. SCENE: ${beat.scene}. `;
+        promptText += `TYPE: Vertical comic panel. COMPOSITION: ${preset.composition}. SCENE: ${beat.scene}. `;
         promptText += `INSTRUCTIONS: Maintain strict character likeness. If scene mentions 'HERO', you MUST use REFERENCE 1.`;
         friendsRef.current.forEach((_, idx) => {
              promptText += ` If scene mentions 'CO-STAR ${idx+1}', use REFERENCE ${idx+2}.`;
@@ -265,6 +270,10 @@ OUTPUT STRICT JSON ONLY (No markdown formatting):
         
         if (beat.caption) promptText += ` INCLUDE CAPTION BOX: "${beat.caption}"`;
         if (beat.dialogue) promptText += ` INCLUDE SPEECH BUBBLE: "${beat.dialogue}"`;
+    }
+
+    if (preset.negative) {
+        promptText += ` AVOID: ${preset.negative}.`;
     }
 
     contents.push({ text: promptText });
