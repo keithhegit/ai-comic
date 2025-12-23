@@ -16,6 +16,8 @@ interface BookProps {
     onChoice: (pageIndex: number, choice: string) => void;
     onOpenBook: () => void;
     onDownload: () => void;
+    onDownloadZip: () => void;
+    onRegenerate: (pageIndex: number, instruction: string) => void;
     onReset: () => void;
 }
 
@@ -23,7 +25,11 @@ export const Book: React.FC<BookProps> = (props) => {
     const sheetsToRender = [];
     if (props.comicFaces.length > 0) {
         sheetsToRender.push({ front: props.comicFaces[0], back: props.comicFaces.find(f => f.pageIndex === 1) });
-        for (let i = 2; i <= TOTAL_PAGES; i += 2) {
+        
+        const maxPage = Math.max(...props.comicFaces.map(f => f.pageIndex || 0), 0);
+        const loopLimit = Math.max(maxPage, 2); // At least cover+page1 (0,1) handled above. Next is 2,3.
+
+        for (let i = 2; i <= loopLimit + 1; i += 2) {
             sheetsToRender.push({ front: props.comicFaces.find(f => f.pageIndex === i), back: props.comicFaces.find(f => f.pageIndex === i + 1) });
         }
     } else if (props.isSetupVisible) {
@@ -38,10 +44,10 @@ export const Book: React.FC<BookProps> = (props) => {
               <div key={i} className={`paper ${i < props.currentSheetIndex ? 'flipped' : ''}`} style={{ zIndex: i < props.currentSheetIndex ? i : sheetsToRender.length - i }}
                    onClick={() => props.onSheetClick(i)}>
                   <div className="front">
-                      <Panel face={sheet.front} allFaces={props.comicFaces} onChoice={props.onChoice} onOpenBook={props.onOpenBook} onDownload={props.onDownload} onReset={props.onReset} />
+                      <Panel face={sheet.front} allFaces={props.comicFaces} onChoice={props.onChoice} onOpenBook={props.onOpenBook} onDownload={props.onDownload} onDownloadZip={props.onDownloadZip} onRegenerate={props.onRegenerate} onReset={props.onReset} />
                   </div>
                   <div className="back">
-                      <Panel face={sheet.back} allFaces={props.comicFaces} onChoice={props.onChoice} onOpenBook={props.onOpenBook} onDownload={props.onDownload} onReset={props.onReset} />
+                      <Panel face={sheet.back} allFaces={props.comicFaces} onChoice={props.onChoice} onOpenBook={props.onOpenBook} onDownload={props.onDownload} onDownloadZip={props.onDownloadZip} onRegenerate={props.onRegenerate} onReset={props.onReset} />
                   </div>
               </div>
           ))}

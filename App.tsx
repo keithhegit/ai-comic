@@ -7,6 +7,8 @@
 import React, { useState, useRef } from 'react';
 import { GoogleGenAI } from '@google/genai';
 import jsPDF from 'jspdf';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 import { MAX_STORY_PAGES, BACK_COVER_PAGE, TOTAL_PAGES, INITIAL_PAGES, BATCH_SIZE, DECISION_PAGES, GENRES, TONES, LANGUAGES, ComicFace, Beat, Persona } from './types';
 import { Setup } from './Setup';
 import { Book } from './Book';
@@ -16,7 +18,7 @@ import { ApiKeyDialog } from './ApiKeyDialog';
 // --- Constants ---
 const MODEL_V3 = "gemini-3-pro-image-preview";
 const MODEL_IMAGE_GEN_NAME = MODEL_V3;
-const MODEL_TEXT_NAME = "gemini-2.0-flash";
+const MODEL_TEXT_NAME = "gemini-3-flash-preview";
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -93,7 +95,7 @@ const App: React.FC = () => {
     });
   };
 
-  const generateBeat = async (history: ComicFace[], isRightPage: boolean, pageNum: number, isDecisionPage: boolean): Promise<Beat> => {
+  const generateBeat = async (history: ComicFace[], isRightPage: boolean, pageNum: number, isDecisionPage: boolean, overrideInstruction?: string): Promise<Beat> => {
     if (!heroRef.current) throw new Error("No Hero");
 
     const isFinalPage = pageNum === pageCount;
@@ -150,6 +152,11 @@ const App: React.FC = () => {
     let instruction = `Continue the story. ALL OUTPUT TEXT (Captions, Dialogue, Choices) MUST BE IN ${langName.toUpperCase()}. ${coreDriver} ${guardrails}`;
     if (richMode) {
         instruction += " RICH/NOVEL MODE ENABLED. Prioritize deeper character thoughts, descriptive captions, and meaningful dialogue exchanges over short punchlines.";
+    }
+
+    // --- APPLY OVERRIDE INSTRUCTION IF PRESENT ---
+    if (overrideInstruction) {
+        instruction += ` USER OVERRIDE / CORRECTION: ${overrideInstruction}. (IGNORE conflicting previous instructions if necessary to satisfy this request).`;
     }
 
     if (isFinalPage) {
@@ -306,7 +313,7 @@ OUTPUT STRICT JSON ONLY (No markdown formatting):
       if (idx !== -1) historyRef.current[idx] = { ...historyRef.current[idx], ...updates };
   };
 
-  const generateSinglePage = async (faceId: string, pageNum: number, type: ComicFace['type']) => {
+  const generateSinglePage = async (faceId: string, pageNum: number, type: ComicFace['type'], overrideInstruction?: string) => {
       const isDecision = DECISION_PAGES.includes(pageNum);
       let beat: Beat = { scene: "", choices: [], focus_char: 'other' };
 
@@ -315,7 +322,7 @@ OUTPUT STRICT JSON ONLY (No markdown formatting):
       } else if (type === 'back_cover') {
            beat = { scene: "Thematic teaser image", choices: [], focus_char: 'other' };
       } else {
-           beat = await generateBeat(historyRef.current, pageNum % 2 === 0, pageNum, isDecision);
+           beat = await generateBeat(historyRef.current, pageNum % 2 === 0, pageNum, isDecision, overrideInstruction);
       }
 
       if (beat.focus_char === 'friend' && friendsRef.current.length === 0 && type === 'story') {
@@ -435,6 +442,36 @@ OUTPUT STRICT JSON ONLY (No markdown formatting):
     doc.save('Infinite-Heroes-Issue.pdf');
   };
 
+  const downloadZip = async () => {
+      const zip = new JSZip();
+      const folder = zip.folder("comic-pages");
+      
+      const pagesToPrint = comicFaces.filter(face => face.imageUrl && !face.isLoading).sort((a, b) => (a.pageIndex || 0) - (b.pageIndex || 0));
+      
+      pagesToPrint.forEach((face) => {
+          if (face.imageUrl) {
+              const base64Data = face.imageUrl.split(',')[1];
+              folder?.file(`Page-${face.pageIndex}.jpg`, base64Data, { base64: true });
+          }
+      });
+      
+      const content = await zip.generateAsync({ type: "blob" });
+      saveAs(content, `Infinite-Heroes-${Date.now()}.zip`);
+  };
+
+  const handleRegenerate = async (pageIndex: number, instruction: string) => {
+      // Find the face
+      const face = comicFaces.find(f => f.pageIndex === pageIndex);
+      if (!face) return;
+      
+      updateFaceState(face.id, { isLoading: true, imageUrl: undefined });
+      
+      // If it's a story page, we might need to regenerate text + image
+      // If it's cover/back cover, just image re-gen with same logic? 
+      // For now, treat all as full regen
+      await generateSinglePage(face.id, pageIndex, face.type, instruction);
+  };
+
   const handleHeroUpload = async (file: File) => {
        try { const base64 = await fileToBase64(file); setHero({ base64, desc: "The Main Hero" }); } catch (e) { alert("Hero upload failed"); }
   };
@@ -494,6 +531,8 @@ OUTPUT STRICT JSON ONLY (No markdown formatting):
           onChoice={handleChoice}
           onOpenBook={() => setCurrentSheetIndex(1)}
           onDownload={downloadPDF}
+          onDownloadZip={downloadZip}
+          onRegenerate={handleRegenerate}
           onReset={resetApp}
       />
     </div>
