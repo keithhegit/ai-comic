@@ -31,7 +31,7 @@ export const ApiKeyDialog: React.FC<ApiKeyDialogProps> = ({ onContinue }) => {
         <div className="bg-gray-100 border-2 border-black border-dashed p-4 mb-6 text-left relative">
              <div className="absolute -top-3 left-4 bg-black text-white px-2 font-comic text-sm uppercase">Mission Briefing</div>
              <p className="font-sans text-sm text-gray-800 leading-relaxed">
-                Gemini 2.0 Flash is a powerful model that require a billing-enabled project to operate. 
+                Gemini 3 Pro Image Preview is a powerful model that require a billing-enabled project to operate. 
                 <br/>
                 <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noreferrer" className="text-blue-600 underline hover:text-blue-800 font-bold">Read the Billing Docs &rarr;</a>
              </p>
