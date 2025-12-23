@@ -16,11 +16,6 @@ export const useApiKey = () => {
   const [showApiKeyDialog, setShowApiKeyDialog] = useState(false);
 
   const validateApiKey = useCallback(async (): Promise<boolean> => {
-    // Check if API_KEY is set in environment (build-time)
-    if (process.env.API_KEY && process.env.API_KEY.length > 0) {
-      return true;
-    }
-
     const aistudio = (window as any).aistudio as AIStudio | undefined;
     
     // If the environment supports key selection

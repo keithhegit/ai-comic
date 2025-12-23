@@ -21,19 +21,19 @@ export const ApiKeyDialog: React.FC<ApiKeyDialogProps> = ({ onContinue }) => {
         </div>
 
         <h2 className="font-comic text-5xl text-red-600 mb-4 uppercase tracking-wide leading-none" style={{textShadow: '2px 2px 0px black'}}>
-          Secret Identity Required!
+          需要隐藏身份！
         </h2>
         
         <p className="font-comic text-xl text-black mb-6 leading-relaxed">
-          Halt, Citizen! To access the infinite multiverse (and generate these amazing comics), you need a <span className="font-bold bg-yellow-200 px-1 border border-black">Paid API Key</span>.
+          等一下，公民！要访问无尽的多重宇宙（并生成这些惊人的漫画），你需要一个 <span className="font-bold bg-yellow-200 px-1 border border-black">付费 API Key</span>。
         </p>
 
         <div className="bg-gray-100 border-2 border-black border-dashed p-4 mb-6 text-left relative">
-             <div className="absolute -top-3 left-4 bg-black text-white px-2 font-comic text-sm uppercase">Mission Briefing</div>
+             <div className="absolute -top-3 left-4 bg-black text-white px-2 font-comic text-sm uppercase">任务简报</div>
              <p className="font-sans text-sm text-gray-800 leading-relaxed">
-                Gemini 3 Pro Image Preview is a powerful model that require a billing-enabled project to operate. 
+                Gemini 3 Pro Image Preview 是一个强大的模型，需要启用计费的项目才能运行。
                 <br/>
-                <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noreferrer" className="text-blue-600 underline hover:text-blue-800 font-bold">Read the Billing Docs &rarr;</a>
+                <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noreferrer" className="text-blue-600 underline hover:text-blue-800 font-bold">阅读计费文档 &rarr;</a>
              </p>
         </div>
 
@@ -41,10 +41,10 @@ export const ApiKeyDialog: React.FC<ApiKeyDialogProps> = ({ onContinue }) => {
           onClick={onContinue}
           className="comic-btn bg-blue-500 text-white text-2xl px-8 py-4 w-full hover:bg-blue-400 transition-transform active:scale-95 uppercase tracking-widest"
         >
-          Unlock The Multiverse
+          开启多重宇宙
         </button>
         
-        <p className="text-center text-xs text-gray-400 mt-4 font-mono">ERROR_CODE: PAYWALL_VILLAIN_DETECTED</p>
+        <p className="text-center text-xs text-gray-400 mt-4 font-mono">错误代码：检测到付费墙反派</p>
       </div>
     </div>
   );

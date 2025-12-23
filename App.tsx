@@ -7,8 +7,6 @@
 import React, { useState, useRef } from 'react';
 import { GoogleGenAI } from '@google/genai';
 import jsPDF from 'jspdf';
-import JSZip from 'jszip';
-import { saveAs } from 'file-saver';
 import { MAX_STORY_PAGES, BACK_COVER_PAGE, TOTAL_PAGES, INITIAL_PAGES, BATCH_SIZE, DECISION_PAGES, GENRES, TONES, LANGUAGES, ComicFace, Beat, Persona } from './types';
 import { Setup } from './Setup';
 import { Book } from './Book';
@@ -18,22 +16,7 @@ import { ApiKeyDialog } from './ApiKeyDialog';
 // --- Constants ---
 const MODEL_V3 = "gemini-3-pro-image-preview";
 const MODEL_IMAGE_GEN_NAME = MODEL_V3;
-const MODEL_TEXT_NAME = "gemini-3-flash-preview";
-
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-async function callWithRetry<T>(fn: () => Promise<T>, retries = 3, initialDelay = 4000): Promise<T> {
-    try {
-        return await fn();
-    } catch (e: any) {
-        if (retries > 0 && (String(e).includes('429') || String(e).includes('RESOURCE_EXHAUSTED') || String(e).includes('quota'))) {
-            console.warn(`Quota exceeded. Retrying in ${initialDelay}ms... (${retries} retries left)`);
-            await delay(initialDelay);
-            return callWithRetry(fn, retries - 1, initialDelay * 2); // Exponential backoff
-        }
-        throw e;
-    }
-}
+const MODEL_TEXT_NAME = MODEL_V3;
 
 const App: React.FC = () => {
   // --- API Key Hook ---
@@ -41,10 +24,9 @@ const App: React.FC = () => {
 
   const [hero, setHeroState] = useState<Persona | null>(null);
   const [friends, setFriendsState] = useState<Persona[]>([]); // Changed to array
-  const [comicTitle, setComicTitle] = useState("INFINITE HEROES");
+  const [comicTitle, setComicTitle] = useState("无尽英雄");
   const [pageCount, setPageCount] = useState(MAX_STORY_PAGES);
   const [plotGuidance, setPlotGuidance] = useState("");
-  
   const [selectedGenre, setSelectedGenre] = useState(GENRES[0]);
   const [selectedLanguage, setSelectedLanguage] = useState(LANGUAGES[0].code);
   const [customPremise, setCustomPremise] = useState("");
@@ -95,7 +77,7 @@ const App: React.FC = () => {
     });
   };
 
-  const generateBeat = async (history: ComicFace[], isRightPage: boolean, pageNum: number, isDecisionPage: boolean, overrideInstruction?: string): Promise<Beat> => {
+  const generateBeat = async (history: ComicFace[], isRightPage: boolean, pageNum: number, isDecisionPage: boolean): Promise<Beat> => {
     if (!heroRef.current) throw new Error("No Hero");
 
     const isFinalPage = pageNum === pageCount;
@@ -154,11 +136,6 @@ const App: React.FC = () => {
         instruction += " RICH/NOVEL MODE ENABLED. Prioritize deeper character thoughts, descriptive captions, and meaningful dialogue exchanges over short punchlines.";
     }
 
-    // --- APPLY OVERRIDE INSTRUCTION IF PRESENT ---
-    if (overrideInstruction) {
-        instruction += ` USER OVERRIDE / CORRECTION: ${overrideInstruction}. (IGNORE conflicting previous instructions if necessary to satisfy this request).`;
-    }
-
     if (isFinalPage) {
         instruction += " FINAL PAGE. KARMIC CLIFFHANGER REQUIRED. You MUST explicitly reference the User's choice from PAGE 3 in the narrative and show how that specific philosophy led to this conclusion. Text must end with 'TO BE CONTINUED...' (or localized equivalent).";
     } else if (isDecisionPage) {
@@ -194,7 +171,7 @@ ${historyText.length > 0 ? historyText : "Start the adventure."}
 
 RULES:
 1. NO REPETITION. Do not use the same captions or dialogue from previous pages.
-2. IF CO-STARS ARE ACTIVE, THEY MUST APPEAR FREQUENTLY.
+2. IF CO-STAR IS ACTIVE, THEY MUST APPEAR FREQUENTLY.
 3. VARIETY. If page ${pageNum-1} was an action shot, make this one a reaction or wide shot.
 4. LANGUAGE: All user-facing text MUST be in ${langName}.
 5. Avoid saying "CO-star" and "hero" in the text captions. Use names if established, or generic descriptors.
@@ -241,11 +218,11 @@ OUTPUT STRICT JSON ONLY (No markdown formatting):
       const style = selectedGenre === 'Custom' ? "Modern American comic book art" : `${selectedGenre} comic`;
       try {
           const ai = getAI();
-          const res = await callWithRetry(() => ai.models.generateContent({
+          const res = await ai.models.generateContent({
               model: MODEL_IMAGE_GEN_NAME,
               contents: { text: `STYLE: Masterpiece ${style} character sheet, detailed ink, neutral background. FULL BODY. Character: ${desc}` },
               config: { imageConfig: { aspectRatio: '1:1' } }
-          }));
+          });
           const part = res.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
           if (part?.inlineData?.data) return { base64: part.inlineData.data, desc };
           throw new Error("Failed");
@@ -313,7 +290,7 @@ OUTPUT STRICT JSON ONLY (No markdown formatting):
       if (idx !== -1) historyRef.current[idx] = { ...historyRef.current[idx], ...updates };
   };
 
-  const generateSinglePage = async (faceId: string, pageNum: number, type: ComicFace['type'], overrideInstruction?: string) => {
+  const generateSinglePage = async (faceId: string, pageNum: number, type: ComicFace['type']) => {
       const isDecision = DECISION_PAGES.includes(pageNum);
       let beat: Beat = { scene: "", choices: [], focus_char: 'other' };
 
@@ -322,7 +299,7 @@ OUTPUT STRICT JSON ONLY (No markdown formatting):
       } else if (type === 'back_cover') {
            beat = { scene: "Thematic teaser image", choices: [], focus_char: 'other' };
       } else {
-           beat = await generateBeat(historyRef.current, pageNum % 2 === 0, pageNum, isDecision, overrideInstruction);
+           beat = await generateBeat(historyRef.current, pageNum % 2 === 0, pageNum, isDecision);
       }
 
       if (beat.focus_char === 'friend' && friendsRef.current.length === 0 && type === 'story') {
@@ -379,8 +356,8 @@ OUTPUT STRICT JSON ONLY (No markdown formatting):
     if (!hasKey) return; // Stop if cancelled or invalid
     
     if (!heroRef.current) return;
-    if (selectedGenre === 'Custom' && !customPremise.trim()) {
-        alert("Please enter a custom story premise.");
+    if (selectedGenre === '自定义' && !customPremise.trim()) {
+        alert("请输入自定义故事前提。");
         return;
     }
     setIsTransitioning(true);
@@ -442,36 +419,6 @@ OUTPUT STRICT JSON ONLY (No markdown formatting):
     doc.save('Infinite-Heroes-Issue.pdf');
   };
 
-  const downloadZip = async () => {
-      const zip = new JSZip();
-      const folder = zip.folder("comic-pages");
-      
-      const pagesToPrint = comicFaces.filter(face => face.imageUrl && !face.isLoading).sort((a, b) => (a.pageIndex || 0) - (b.pageIndex || 0));
-      
-      pagesToPrint.forEach((face) => {
-          if (face.imageUrl) {
-              const base64Data = face.imageUrl.split(',')[1];
-              folder?.file(`Page-${face.pageIndex}.jpg`, base64Data, { base64: true });
-          }
-      });
-      
-      const content = await zip.generateAsync({ type: "blob" });
-      saveAs(content, `Infinite-Heroes-${Date.now()}.zip`);
-  };
-
-  const handleRegenerate = async (pageIndex: number, instruction: string) => {
-      // Find the face
-      const face = comicFaces.find(f => f.pageIndex === pageIndex);
-      if (!face) return;
-      
-      updateFaceState(face.id, { isLoading: true, imageUrl: undefined });
-      
-      // If it's a story page, we might need to regenerate text + image
-      // If it's cover/back cover, just image re-gen with same logic? 
-      // For now, treat all as full regen
-      await generateSinglePage(face.id, pageIndex, face.type, instruction);
-  };
-
   const handleHeroUpload = async (file: File) => {
        try { const base64 = await fileToBase64(file); setHero({ base64, desc: "The Main Hero" }); } catch (e) { alert("Hero upload failed"); }
   };
@@ -501,20 +448,16 @@ OUTPUT STRICT JSON ONLY (No markdown formatting):
           comicTitle={comicTitle}
           pageCount={pageCount}
           plotGuidance={plotGuidance}
-          
           selectedGenre={selectedGenre}
           selectedLanguage={selectedLanguage}
           customPremise={customPremise}
           richMode={richMode}
-          
           onHeroUpload={handleHeroUpload}
           onFriendUpload={handleAddFriend}
           onFriendsChange={setFriends}
-          
           onTitleChange={setComicTitle}
           onPageCountChange={setPageCount}
           onPlotGuidanceChange={setPlotGuidance}
-          
           onGenreChange={setSelectedGenre}
           onLanguageChange={setSelectedLanguage}
           onPremiseChange={setCustomPremise}
@@ -531,8 +474,6 @@ OUTPUT STRICT JSON ONLY (No markdown formatting):
           onChoice={handleChoice}
           onOpenBook={() => setCurrentSheetIndex(1)}
           onDownload={downloadPDF}
-          onDownloadZip={downloadZip}
-          onRegenerate={handleRegenerate}
           onReset={resetApp}
       />
     </div>
