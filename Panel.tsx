@@ -30,7 +30,7 @@ export const Panel: React.FC<PanelProps> = ({ face, allFaces, onChoice, onOpenBo
             {/* Decision Buttons */}
             {face.isDecisionPage && face.choices.length > 0 && (
                 <div className={`absolute bottom-0 inset-x-0 p-6 pb-12 flex flex-col gap-3 items-center justify-end transition-opacity duration-500 ${face.resolvedChoice ? 'opacity-0 pointer-events-none' : 'opacity-100'} bg-gradient-to-t from-black/90 via-black/50 to-transparent z-20`}>
-                    <p className="text-white font-comic text-2xl uppercase tracking-widest animate-pulse">你的选择是？</p>
+                    <p className="text-white font-comic text-2xl uppercase tracking-widest animate-pulse">Your Choice?</p>
                     {face.choices.map((choice, i) => (
                         <button key={i} onClick={(e) => { e.stopPropagation(); if(face.pageIndex) onChoice(face.pageIndex, choice); }}
                           className={`comic-btn w-full py-3 text-xl font-bold tracking-wider ${i===0?'bg-yellow-400 hover:bg-yellow-300':'bg-blue-500 text-white hover:bg-blue-400'}`}>
@@ -46,7 +46,7 @@ export const Panel: React.FC<PanelProps> = ({ face, allFaces, onChoice, onOpenBo
                      <button onClick={(e) => { e.stopPropagation(); onOpenBook(); }}
                       disabled={!allFaces.find(f => f.pageIndex === GATE_PAGE)?.imageUrl}
                       className="comic-btn bg-yellow-400 px-10 py-4 text-3xl font-bold hover:scale-105 animate-bounce disabled:animate-none disabled:bg-gray-400 disabled:cursor-wait">
-                         {(!allFaces.find(f => f.pageIndex === GATE_PAGE)?.imageUrl) ? `正在打印... ${allFaces.filter(f => f.type==='story' && f.imageUrl && (f.pageIndex||0) <= GATE_PAGE).length}/${INITIAL_PAGES}` : '开始阅读 第1期'}
+                         {(!allFaces.find(f => f.pageIndex === GATE_PAGE)?.imageUrl) ? `正在打印... ${allFaces.filter(f => f.type==='story' && f.imageUrl && (f.pageIndex||0) <= GATE_PAGE).length}/${INITIAL_PAGES}` : 'Enter'}
                      </button>
                  </div>
             )}
