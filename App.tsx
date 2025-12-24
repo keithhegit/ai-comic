@@ -111,10 +111,10 @@ const App: React.FC = () => {
         }
     }
 
-    // Determine Core Story Driver (Genre vs Custom Premise)
+    // Determine Core Story Driver
     let coreDriver = `GENRE: ${selectedGenre}. TONE: ${storyTone}.`;
-    if (selectedGenre === 'Custom') {
-        coreDriver = `STORY PREMISE: ${customPremise || "A totally unique, unpredictable adventure"}. (Follow this premise strictly over standard genre tropes).`;
+    if (customPremise) {
+        coreDriver += ` STORY PREMISE: ${customPremise}.`;
     }
     if (plotGuidance) {
         coreDriver += ` USER PLOT GUIDANCE (HIGHEST PRIORITY): ${plotGuidance}.`;
@@ -216,11 +216,12 @@ OUTPUT STRICT JSON ONLY (No markdown formatting):
 
   const generatePersona = async (desc: string): Promise<Persona> => {
       const style = selectedGenre === 'Custom' ? "Modern American comic book art" : `${selectedGenre} comic`;
+      const finalDesc = customPremise ? `${desc} (${customPremise})` : desc;
       try {
           const ai = getAI();
           const res = await ai.models.generateContent({
               model: MODEL_IMAGE_GEN_NAME,
-              contents: { text: `STYLE: Masterpiece ${style} character sheet, detailed ink, neutral background. FULL BODY. Character: ${desc}` },
+              contents: { text: `STYLE: Masterpiece ${style} character sheet, detailed ink, neutral background. FULL BODY. Character: ${finalDesc}` },
               config: { imageConfig: { aspectRatio: '1:1' } }
           });
           const part = res.candidates?.[0]?.content?.parts?.find(p => p.inlineData);

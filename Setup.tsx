@@ -212,12 +212,10 @@ export const Setup: React.FC<SetupProps> = (props) => {
                                     </div>
                                 </div>
 
-                                {props.selectedGenre === '自定义' && (
-                                    <div className="mb-2">
-                                        <p className="font-comic text-base mb-1 font-bold text-gray-800">故事前提</p>
-                                        <textarea value={props.customPremise} onChange={(e) => props.onPremiseChange(e.target.value)} placeholder="输入你的故事前提..." className="w-full p-1 border-2 border-black font-comic text-lg h-16 resize-none shadow-[3px_3px_0px_rgba(0,0,0,0.2)]" />
-                                    </div>
-                                )}
+                                <div className="mb-2">
+                                    <p className="font-comic text-base mb-1 font-bold text-gray-800">故事前提</p>
+                                    <textarea value={props.customPremise} onChange={(e) => props.onPremiseChange(e.target.value)} placeholder="输入你的故事前提..." className="w-full p-1 border-2 border-black font-comic text-lg h-16 resize-none shadow-[3px_3px_0px_rgba(0,0,0,0.2)]" />
+                                </div>
 
                                 <div className="mb-2">
                                     <p className="font-comic text-base mb-1 font-bold text-gray-800">剧情走向 (可选)</p>
