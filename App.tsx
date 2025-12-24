@@ -51,9 +51,12 @@ const App: React.FC = () => {
   // Helper to always get a fresh instance with the selected key
   const getAI = () => {
     const currentKey = process.env.API_KEY;
-    console.log("%c🔑 [DEBUG] 正在使用的 API Key:", "color: red; font-weight: bold; font-size: 14px");
-    console.log("Key 值:", currentKey);
-    console.log("Key 类型:", typeof currentKey);
+    // --- DEBUG CHECK ---
+    (window as any).API_KEY_CHECK = currentKey;
+    console.log("%c🔑 [DEBUG] API Key Check Tool Active", "color: #00ff00; font-weight: bold;");
+    console.log("Current Key in memory:", currentKey);
+    console.log("Type 'API_KEY_CHECK' in console to see it anytime.");
+    // -------------------
     return new GoogleGenAI({ apiKey: currentKey });
   };
 
