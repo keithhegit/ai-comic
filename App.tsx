@@ -53,7 +53,11 @@ const App: React.FC = () => {
   // --- AI Helpers ---
   // Helper to always get a fresh instance with the selected key
   const getAI = () => {
-    return new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const currentKey = process.env.API_KEY;
+    console.log("%c🔑 [DEBUG] 正在使用的 API Key:", "color: red; font-weight: bold; font-size: 14px");
+    console.log("Key 值:", currentKey);
+    console.log("Key 类型:", typeof currentKey);
+    return new GoogleGenAI({ apiKey: currentKey });
   };
 
   const handleAPIError = (e: any) => {
